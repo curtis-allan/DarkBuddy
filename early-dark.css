@@ -1,0 +1,19 @@
+html {
+  background: #1a1a1a !important;
+}
+
+html:not([data-darkbuddy]) {
+  content-visibility: hidden;
+  forced-color-adjust: none;
+}
+
+html[data-darkbuddy],
+html[data-turbo-loaded] {
+  content-visibility: visible;
+}
+
+html[data-darkbuddy="disabled"],
+html[data-darkbuddy="error"],
+html[data-darkbuddy="timeout"] {
+  background: initial !important;
+}
