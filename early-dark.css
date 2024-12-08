@@ -1,19 +1,15 @@
-html {
+/* Prevent white flash during page loads when dark mode is enabled */
+html[data-dark-mode="true"] {
   background: #1a1a1a !important;
+  color-scheme: dark;
 }
 
-html:not([data-darkbuddy]) {
-  content-visibility: hidden;
-  forced-color-adjust: none;
+/* Hide content until dark mode state is determined */
+html:not([data-dark-mode]) {
+  visibility: hidden;
 }
 
-html[data-darkbuddy],
-html[data-turbo-loaded] {
-  content-visibility: visible;
-}
-
-html[data-darkbuddy="disabled"],
-html[data-darkbuddy="error"],
-html[data-darkbuddy="timeout"] {
-  background: initial !important;
+/* Show content once state is set */
+html[data-dark-mode] {
+  visibility: visible;
 }

@@ -14,12 +14,14 @@ const ICONS = {
   },
 };
 
-// State tracking
-let isToggling = false;
-let currentDomain = null;
-
 // Utility functions
-const getDomain = (url) => new URL(url).hostname;
+const getDomain = (url) => {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return null;
+  }
+};
 
 const getStorageData = async () => {
   const { darkModeSites = {} } =
@@ -27,13 +29,26 @@ const getStorageData = async () => {
   return darkModeSites;
 };
 
-// Combined update function that either completes fully or not at all
+// Update icon based on domain's dark mode state
+const updateIcon = async (tabId, domain) => {
+  if (!domain) return;
+
+  const darkModeSites = await getStorageData();
+  const isDark = darkModeSites[domain] || false;
+
+  await chrome.action.setIcon({
+    tabId,
+    path: isDark ? ICONS.LIGHT : ICONS.DARK,
+  });
+};
+
+// Toggle dark mode for a domain
 const toggleDarkMode = async (tab) => {
   const domain = getDomain(tab.url);
-  const darkModeSites = await getStorageData();
+  if (!domain) return;
 
-  // For new sites, assume they're starting in light mode (false)
-  const currentState = domain in darkModeSites ? darkModeSites[domain] : false;
+  const darkModeSites = await getStorageData();
+  const currentState = darkModeSites[domain] || false;
   const newState = !currentState;
 
   const updatedSites = {
@@ -41,8 +56,7 @@ const toggleDarkMode = async (tab) => {
     [domain]: newState,
   };
 
-  // All operations that need to succeed
-  const updates = [
+  await Promise.all([
     chrome.action.setIcon({
       tabId: tab.id,
       path: newState ? ICONS.LIGHT : ICONS.DARK,
@@ -52,77 +66,59 @@ const toggleDarkMode = async (tab) => {
       enabled: newState,
     }),
     chrome.storage.local.set({ darkModeSites: updatedSites }),
-  ];
-
-  await Promise.all(updates);
+  ]);
 };
 
-// Protected click handler
+// Event handlers
 const handleActionClick = async (tab) => {
-  if (!tab?.url || !tab.id || isToggling) return;
-
+  if (!tab?.url || !tab.id) return;
   try {
-    isToggling = true;
     await toggleDarkMode(tab);
   } catch (err) {
     console.error("Error toggling dark mode:", err);
-  } finally {
-    isToggling = false;
   }
 };
 
-// Domain-aware tab management
-const handleTabChange = async (tab) => {
-  if (!tab?.url || !tab.id) return;
-
-  const newDomain = getDomain(tab.url);
-
-  // Only update icon if we've changed domains
-  if (newDomain !== currentDomain) {
-    try {
-      currentDomain = newDomain;
-      const darkModeSites = await getStorageData();
-      const isDark =
-        newDomain in darkModeSites ? darkModeSites[newDomain] : false;
-
-      await chrome.action.setIcon({
-        tabId: tab.id,
-        path: isDark ? ICONS.LIGHT : ICONS.DARK,
-      });
-    } catch (err) {
-      console.error("Error handling tab change:", err);
-    }
+const handleTabUpdate = async (tabId, changeInfo, tab) => {
+  // Handle both initial load and subsequent navigations
+  if (
+    tab.url &&
+    (changeInfo.status === "loading" || changeInfo.status === "complete")
+  ) {
+    const domain = getDomain(tab.url);
+    await updateIcon(tabId, domain);
   }
 };
 
-const handleTabActivation = async ({ tabId }) => {
+const handleTabActivated = async ({ tabId }) => {
   try {
     const tab = await chrome.tabs.get(tabId);
-    await handleTabChange(tab);
+    if (tab.url) {
+      const domain = getDomain(tab.url);
+      await updateIcon(tabId, domain);
+    }
   } catch (err) {
     console.error("Error in tab activation:", err);
   }
 };
 
-const handleTabUpdate = async (tabId, changeInfo, tab) => {
-  // Only check on complete and only if it's a navigation (url change)
-  if (changeInfo.status === "complete" && changeInfo.url) {
-    await handleTabChange(tab);
-  }
-};
-
-// Initialize extension
+// Initialize all existing tabs
 const initializeExtension = async () => {
   const tabs = await chrome.tabs.query({});
   for (const tab of tabs) {
-    await handleTabChange(tab);
+    if (tab.url && tab.id) {
+      const domain = getDomain(tab.url);
+      await updateIcon(tab.id, domain);
+    }
   }
 };
 
 // Event listeners
-chrome.tabs.onActivated.addListener(handleTabActivation);
-chrome.tabs.onUpdated.addListener(handleTabUpdate);
 chrome.action.onClicked.addListener(handleActionClick);
+chrome.tabs.onActivated.addListener(handleTabActivated);
+chrome.tabs.onUpdated.addListener(handleTabUpdate);
 
-// Initialize on load
+// Initialize on install/update
+chrome.runtime.onInstalled.addListener(initializeExtension);
+// Initialize when service worker starts
 initializeExtension();
