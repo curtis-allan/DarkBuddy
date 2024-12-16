@@ -1,15 +1,16 @@
 {
   "manifest_version": 3,
   "name": "DarkBuddy",
-  "version": "1.0",
-  "description": "Darkmode toggle for websites without one",
+  "version": "1.1",
+  "description": "Dark mode toggle for websites without one",
   "permissions": [
     "storage",
     "activeTab",
     "tabs"
   ],
   "host_permissions": [
-    "<all_urls>"
+    "http://localhost:8888/*",
+    "https://*/*"
   ],
   "action": {
     "default_icon": {
@@ -25,7 +26,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": ["http://localhost:8888/*", "https://*/*"],
       "js": ["content.js"],
       "css": ["early-dark.css"],
       "run_at": "document_start"

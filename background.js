@@ -14,7 +14,9 @@ const ICONS = {
   },
 };
 
-// Utility functions
+// Cached storage data
+let cachedDarkModeSites = {};
+
 const getDomain = (url) => {
   try {
     return new URL(url).hostname;
@@ -24,21 +26,23 @@ const getDomain = (url) => {
 };
 
 const getStorageData = async () => {
-  const { darkModeSites = {} } =
-    await chrome.storage.local.get("darkModeSites");
-  return darkModeSites;
+  if (Object.keys(cachedDarkModeSites).length === 0) {
+    const data = await chrome.storage.local.get("darkModeSites");
+    cachedDarkModeSites = data.darkModeSites || {};
+  }
+  return cachedDarkModeSites;
 };
 
 // Update icon based on domain's dark mode state
 const updateIcon = async (tabId, domain) => {
   if (!domain) return;
-
   const darkModeSites = await getStorageData();
   const isDark = darkModeSites[domain] || false;
+  const currentIcon = isDark ? ICONS.LIGHT : ICONS.DARK;
 
   await chrome.action.setIcon({
     tabId,
-    path: isDark ? ICONS.LIGHT : ICONS.DARK,
+    path: currentIcon,
   });
 };
 
@@ -56,17 +60,22 @@ const toggleDarkMode = async (tab) => {
     [domain]: newState,
   };
 
-  await Promise.all([
+  try {
+    await chrome.storage.local.set({ darkModeSites: updatedSites });
+    cachedDarkModeSites = updatedSites; // Update cache
+
     chrome.action.setIcon({
       tabId: tab.id,
       path: newState ? ICONS.LIGHT : ICONS.DARK,
-    }),
+    });
+
     chrome.tabs.sendMessage(tab.id, {
       type: "TOGGLE_DARK_MODE",
       enabled: newState,
-    }),
-    chrome.storage.local.set({ darkModeSites: updatedSites }),
-  ]);
+    });
+  } catch (err) {
+    console.error(`ERROR: ${err}`);
+  }
 };
 
 // Event handlers
@@ -80,7 +89,6 @@ const handleActionClick = async (tab) => {
 };
 
 const handleTabUpdate = async (tabId, changeInfo, tab) => {
-  // Handle both initial load and subsequent navigations
   if (
     tab.url &&
     (changeInfo.status === "loading" || changeInfo.status === "complete")
@@ -113,12 +121,16 @@ const initializeExtension = async () => {
   }
 };
 
+// Listen for storage changes to update cache
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.darkModeSites) {
+    cachedDarkModeSites = changes.darkModeSites.newValue || {};
+  }
+});
+
 // Event listeners
 chrome.action.onClicked.addListener(handleActionClick);
 chrome.tabs.onActivated.addListener(handleTabActivated);
 chrome.tabs.onUpdated.addListener(handleTabUpdate);
-
-// Initialize on install/update
 chrome.runtime.onInstalled.addListener(initializeExtension);
-// Initialize when service worker starts
 initializeExtension();

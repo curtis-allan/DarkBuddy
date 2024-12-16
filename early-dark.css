@@ -1,42 +1,30 @@
+/* Prevent flashing by hiding until mode is determined */
+html {
+  visibility: hidden;
+}
+
 /* Dark mode styles */
-html[data-dark-mode="true"] {
+html.darkbuddy-on {
   background: #1a1a1a !important;
   color-scheme: dark;
 }
 
-html[data-dark-mode="true"] > body {
+html.darkbuddy-on body {
   filter: invert(0.9) hue-rotate(180deg);
-  backface-visibility: hidden;
-  transform: translateZ(0);
   forced-color-adjust: none !important;
 }
 
-html[data-dark-mode="true"]
-  > body
-  :is(
-    img:not([aria-hidden="true"]),
-    picture,
-    video,
-    canvas,
-    [style*="background-image"]
-  ) {
+html.darkbuddy-on picture,
+html.darkbuddy-on video,
+html.darkbuddy-on canvas,
+html.darkbuddy-on img:not([aria-hidden="true"]),
+html.darkbuddy-on [style*="background-image"],
+html.darkbuddy-on [role*="img"],
+html.darkbuddy-on iframe {
   filter: invert(1) hue-rotate(180deg);
-  backface-visibility: hidden;
 }
 
-/* iframe handling */
-html[data-dark-mode="true"] > body iframe {
-  filter: invert(1) hue-rotate(180deg);
-  backface-visibility: hidden;
-  isolation: isolate;
-}
-
-/* Initial load handling */
-html:not([data-dark-mode]) {
-  visibility: hidden;
-}
-
-html[data-dark-mode],
-html[data-turbo-loaded] {
+html[data-turbo-loaded],
+html.darkbuddy-on {
   visibility: visible;
 }

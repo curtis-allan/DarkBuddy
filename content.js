@@ -1,30 +1,34 @@
-// Optimize performance by caching document root
-const root = document.documentElement;
 let currentState = null;
+const root = document.documentElement;
 
-// Simplified setDarkMode without stylesheet management
-const setDarkMode = async (enabled) => {
+const applyDarkMode = (enabled) => {
   if (currentState === enabled) return;
   currentState = enabled;
-  root.dataset.darkMode = enabled;
+  if (enabled) {
+    root.classList.add("darkbuddy-on");
+  } else {
+    root.classList.remove("darkbuddy-on");
+  }
 };
 
-// Initialize as soon as possible
 const initialize = async () => {
   try {
     const { darkModeSites = {} } =
       await chrome.storage.local.get("darkModeSites");
-    setDarkMode(darkModeSites[location.hostname] || false);
+    const enabled = Boolean(darkModeSites[location.hostname]);
+    applyDarkMode(enabled);
   } catch (err) {
     console.error("Failed to initialize dark mode:", err);
-    setDarkMode(false);
+    applyDarkMode(false);
+  } finally {
+    root.style.visibility = "visible";
   }
 };
 
-// Message handler
+// Listen for toggle messages from background.js
 chrome.runtime.onMessage.addListener(({ type, enabled }) => {
   if (type === "TOGGLE_DARK_MODE") {
-    setDarkMode(enabled);
+    applyDarkMode(enabled);
   }
 });
 
